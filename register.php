@@ -1,32 +1,54 @@
 <?php
 require('config.php');
-if (isset($_REQUEST['firstname'])) {
-  if ($_REQUEST['password'] == $_REQUEST['confirm_password']) {
-    $firstname = stripslashes($_REQUEST['firstname']);
-    $firstname = mysqli_real_escape_string($con, $firstname);
-    $lastname = stripslashes($_REQUEST['lastname']);
-    $lastname = mysqli_real_escape_string($con, $lastname);
 
-    $email = stripslashes($_REQUEST['email']);
-    $email = mysqli_real_escape_string($con, $email);
+$error = "";
 
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    $password = stripslashes($_REQUEST['password']);
-    $password = mysqli_real_escape_string($con, $password);
+    $firstname = trim($_POST['firstname']);
+    $lastname  = trim($_POST['lastname']);
+    $email     = trim($_POST['email']);
+    $password  = $_POST['password'];
+    $confirm_password = $_POST['confirm_password'];
 
+    // Check password match
+    if ($password !== $confirm_password) {
+        $error = "Passwords do not match!";
+    } else {
 
-   
+        // Check if email already exists
+        $check = $con->prepare("SELECT id FROM users WHERE email = ?");
+        $check->bind_param("s", $email);
+        $check->execute();
+        $check->store_result();
 
-    $query = "INSERT into `users` (firstname, lastname, password, email) VALUES ('$firstname','$lastname', '" . md5($password) . "', '$email' )";
-    $result = mysqli_query($con, $query);
-    if ($result) {
-      header("Location: login.php");
+        if ($check->num_rows > 0) {
+            $error = "Email already registered!";
+        } else {
+
+            // Secure password hashing
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
+            // Insert user securely
+            $stmt = $con->prepare("INSERT INTO users (firstname, lastname, email, password) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("ssss", $firstname, $lastname, $email, $hashed_password);
+
+            if ($stmt->execute()) {
+                header("Location: login.php");
+                exit();
+            } else {
+                $error = "Something went wrong. Try again.";
+            }
+
+            $stmt->close();
+        }
+        $check->close();
     }
-  } else {
-    echo ("ERROR: Please Check Your Password & Confirmation password");
-  }
+
+    $con->close();
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
