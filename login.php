@@ -1,25 +1,49 @@
 <?php
 require('config.php');
 session_start();
-$errormsg = "";
-if (isset($_POST['email'])) {
 
-  $email = stripslashes($_REQUEST['email']);
-  $email = mysqli_real_escape_string($con, $email);
-  $password = stripslashes($_REQUEST['password']);
-  $password = mysqli_real_escape_string($con, $password);
-  $query = "SELECT * FROM `users` WHERE email='$email'and password='" . md5($password) . "'";
-  $result = mysqli_query($con, $query) or die(mysqli_error($con));
-  $rows = mysqli_num_rows($result);
-  if ($rows == 1) {
-    $_SESSION['email'] = $email;
-    header("Location: index.php");
-  } else {
-    $errormsg  = "Wrong";
-  }
-} else {
+$errormsg = "";
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+
+    $email = trim($_POST['email']);
+    $password = $_POST['password'];
+
+    // Prepared statement
+    $stmt = $con->prepare("SELECT id, firstname, password FROM users WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 1) {
+
+        $user = $result->fetch_assoc();
+
+        // Verify hashed password
+        if (password_verify($password, $user['password'])) {
+
+            session_regenerate_id(true); // prevent session fixation
+
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['email'] = $email;
+            $_SESSION['firstname'] = $user['firstname'];
+
+            header("Location: index.php");
+            exit();
+
+        } else {
+            $errormsg = "Invalid email or password!";
+        }
+
+    } else {
+        $errormsg = "Invalid email or password!";
+    }
+
+    $stmt->close();
+    $con->close();
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
